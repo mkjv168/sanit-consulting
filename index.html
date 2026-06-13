@@ -776,6 +776,42 @@
       font-weight: 600;
       margin-left: 0.5rem;
     }
+
+    .ttt-difficulty {
+      display: flex;
+      justify-content: center;
+      gap: 0.5rem;
+      margin-bottom: 1.5rem;
+    }
+
+    .ttt-diff-btn {
+      padding: 0.5rem 1.25rem;
+      font-family: 'Inter', sans-serif;
+      font-size: 0.75rem;
+      font-weight: 600;
+      letter-spacing: 1.5px;
+      text-transform: uppercase;
+      background: transparent;
+      color: var(--text-secondary);
+      border: 1px solid var(--border);
+      cursor: pointer;
+      transition: all 0.3s ease;
+    }
+
+    .ttt-diff-btn:hover {
+      border-color: var(--accent-dim);
+      color: var(--text-primary);
+    }
+
+    .ttt-diff-btn.active {
+      background: var(--accent);
+      color: var(--bg-deep);
+      border-color: var(--accent);
+    }
+
+    .ttt-diff-btn.active:hover {
+      background: #ddb654;
+    }
   </style>
 </head>
 <body>
@@ -978,6 +1014,11 @@
         <div><span class="score-label">Draws</span><span class="score-value" id="scoreDraw">0</span></div>
         <div><span class="score-label">AI</span><span class="score-value" id="scoreO">0</span></div>
       </div>
+      <div class="ttt-difficulty">
+        <button class="ttt-diff-btn" data-level="easy" id="diffEasy">Easy</button>
+        <button class="ttt-diff-btn" data-level="medium" id="diffMedium">Medium</button>
+        <button class="ttt-diff-btn active" data-level="hard" id="diffHard">Hard</button>
+      </div>
       <div class="ttt-status" id="tttStatus">Your move. You are X.</div>
       <div class="ttt-board" id="tttBoard">
         <div class="ttt-cell" data-index="0"></div>
@@ -1049,11 +1090,13 @@
       const scoreXEl = document.getElementById('scoreX');
       const scoreOEl = document.getElementById('scoreO');
       const scoreDrawEl = document.getElementById('scoreDraw');
+      const diffBtns = document.querySelectorAll('.ttt-diff-btn');
 
       let gameState = Array(9).fill('');
       let currentPlayer = 'X';
       let gameActive = true;
       let scores = { X: 0, O: 0, draw: 0 };
+      let difficulty = 'hard';
 
       const winPatterns = [
         [0,1,2], [3,4,5], [6,7,8],
@@ -1074,6 +1117,47 @@
         return state.every(c => c !== '');
       }
 
+      function getAvailableMoves(state) {
+        return state.map((c, i) => c === '' ? i : null).filter(i => i !== null);
+      }
+
+      // Easy: purely random
+      function getEasyMove() {
+        const moves = getAvailableMoves(gameState);
+        return moves[Math.floor(Math.random() * moves.length)];
+      }
+
+      // Medium: win if possible, block if needed, otherwise random
+      function getMediumMove() {
+        const moves = getAvailableMoves(gameState);
+
+        // Can AI win?
+        for (const move of moves) {
+          gameState[move] = 'O';
+          const win = checkWin(gameState, 'O');
+          gameState[move] = '';
+          if (win) return move;
+        }
+
+        // Must block player?
+        for (const move of moves) {
+          gameState[move] = 'X';
+          const win = checkWin(gameState, 'X');
+          gameState[move] = '';
+          if (win) return move;
+        }
+
+        // Prefer center if available
+        if (moves.includes(4)) return 4;
+
+        // Prefer corners over edges
+        const corners = moves.filter(m => [0,2,6,8].includes(m));
+        if (corners.length > 0) return corners[Math.floor(Math.random() * corners.length)];
+
+        return moves[Math.floor(Math.random() * moves.length)];
+      }
+
+      // Hard: minimax
       function minimax(state, depth, isMaximizing) {
         if (checkWin(state, 'O')) return 10 - depth;
         if (checkWin(state, 'X')) return depth - 10;
@@ -1102,7 +1186,7 @@
         }
       }
 
-      function getBestMove() {
+      function getHardMove() {
         let bestScore = -Infinity;
         let move = -1;
         for (let i = 0; i < 9; i++) {
@@ -1117,6 +1201,12 @@
           }
         }
         return move;
+      }
+
+      function getAIMove() {
+        if (difficulty === 'easy') return getEasyMove();
+        if (difficulty === 'medium') return getMediumMove();
+        return getHardMove();
       }
 
       function updateCell(cell, player) {
@@ -1134,20 +1224,30 @@
         if (winPattern) highlightWinner(winPattern);
       }
 
+      function getStatusMessage(aiWon) {
+        if (difficulty === 'easy') {
+          return aiWon ? 'AI wins. Even beginners get lucky.' : 'You win! Nicely done.';
+        }
+        if (difficulty === 'medium') {
+          return aiWon ? 'AI wins. Step up your game.' : 'You win! Sharp thinking.';
+        }
+        return aiWon ? 'AI wins. Unbeatable, remember?' : 'You win! Impressive.';
+      }
+
       function aiMove() {
         if (!gameActive) return;
         status.textContent = 'AI is thinking...';
         setTimeout(() => {
           if (!gameActive) return;
-          const move = getBestMove();
-          if (move !== -1) {
+          const move = getAIMove();
+          if (move !== -1 && move !== undefined) {
             gameState[move] = 'O';
             updateCell(cells[move], 'O');
             const winPattern = checkWin(gameState, 'O');
             if (winPattern) {
               scores.O++;
               scoreOEl.textContent = scores.O;
-              endGame('AI wins. Unbeatable, remember?', winPattern);
+              endGame(getStatusMessage(true), winPattern);
             } else if (isDraw(gameState)) {
               scores.draw++;
               scoreDrawEl.textContent = scores.draw;
@@ -1172,7 +1272,7 @@
         if (winPattern) {
           scores.X++;
           scoreXEl.textContent = scores.X;
-          endGame('You win! Impressive.', winPattern);
+          endGame(getStatusMessage(false), winPattern);
           return;
         }
 
@@ -1198,8 +1298,19 @@
         });
       }
 
+      function setDifficulty(level) {
+        difficulty = level;
+        diffBtns.forEach(btn => {
+          btn.classList.toggle('active', btn.dataset.level === level);
+        });
+        resetGame();
+      }
+
       cells.forEach(cell => cell.addEventListener('click', handleCellClick));
       resetBtn.addEventListener('click', resetGame);
+      diffBtns.forEach(btn => {
+        btn.addEventListener('click', () => setDifficulty(btn.dataset.level));
+      });
     })();
   </script>
 
