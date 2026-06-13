@@ -680,6 +680,102 @@
         max-width: 100%;
       }
     }
+
+    /* Tic Tac Toe */
+    .ttt-section {
+      background: var(--bg-surface);
+      border-top: 1px solid var(--border);
+    }
+
+    .ttt-container {
+      max-width: 420px;
+      margin: 0 auto;
+      text-align: center;
+    }
+
+    .ttt-status {
+      font-family: 'Cormorant Garamond', serif;
+      font-size: 1.5rem;
+      font-weight: 600;
+      color: var(--accent);
+      margin-bottom: 1.5rem;
+      min-height: 2rem;
+      letter-spacing: 1px;
+    }
+
+    .ttt-board {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 8px;
+      margin-bottom: 1.5rem;
+    }
+
+    .ttt-cell {
+      aspect-ratio: 1;
+      background: var(--bg-elevated);
+      border: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-family: 'Cormorant Garamond', serif;
+      font-size: 2.5rem;
+      font-weight: 700;
+      cursor: pointer;
+      transition: all 0.25s ease;
+      color: var(--text-primary);
+      user-select: none;
+    }
+
+    .ttt-cell:hover {
+      border-color: var(--accent-dim);
+      background: rgba(201, 168, 76, 0.05);
+    }
+
+    .ttt-cell.x-mark {
+      color: var(--accent);
+    }
+
+    .ttt-cell.o-mark {
+      color: var(--text-secondary);
+    }
+
+    .ttt-cell.winner {
+      background: var(--accent-glow);
+      border-color: var(--accent);
+      animation: winPulse 0.6s ease;
+    }
+
+    @keyframes winPulse {
+      0% { transform: scale(1); }
+      50% { transform: scale(1.08); }
+      100% { transform: scale(1); }
+    }
+
+    .ttt-controls {
+      display: flex;
+      justify-content: center;
+      gap: 1rem;
+    }
+
+    .ttt-scoreboard {
+      display: flex;
+      justify-content: center;
+      gap: 2rem;
+      margin-bottom: 1.5rem;
+      font-size: 0.85rem;
+      letter-spacing: 1.5px;
+      text-transform: uppercase;
+    }
+
+    .ttt-scoreboard .score-label {
+      color: var(--text-secondary);
+    }
+
+    .ttt-scoreboard .score-value {
+      color: var(--accent);
+      font-weight: 600;
+      margin-left: 0.5rem;
+    }
   </style>
 </head>
 <body>
@@ -691,6 +787,7 @@
       <li><a href="#journey">Journey</a></li>
       <li><a href="#services">Services</a></li>
       <li><a href="#contact">Contact</a></li>
+      <li><a href="#playground">Playground</a></li>
     </ul>
   </nav>
 
@@ -869,6 +966,36 @@
     </div>
   </section>
 
+  <!-- Playground -->
+  <section id="playground" class="ttt-section">
+    <div class="section-header" style="text-align: center;">
+      <h2>The <span>Playground</span></h2>
+      <p style="margin: 0 auto;">A tech-savvy consultant builds things for fun. Try to beat the AI.</p>
+    </div>
+    <div class="ttt-container">
+      <div class="ttt-scoreboard">
+        <div><span class="score-label">You</span><span class="score-value" id="scoreX">0</span></div>
+        <div><span class="score-label">Draws</span><span class="score-value" id="scoreDraw">0</span></div>
+        <div><span class="score-label">AI</span><span class="score-value" id="scoreO">0</span></div>
+      </div>
+      <div class="ttt-status" id="tttStatus">Your move. You are X.</div>
+      <div class="ttt-board" id="tttBoard">
+        <div class="ttt-cell" data-index="0"></div>
+        <div class="ttt-cell" data-index="1"></div>
+        <div class="ttt-cell" data-index="2"></div>
+        <div class="ttt-cell" data-index="3"></div>
+        <div class="ttt-cell" data-index="4"></div>
+        <div class="ttt-cell" data-index="5"></div>
+        <div class="ttt-cell" data-index="6"></div>
+        <div class="ttt-cell" data-index="7"></div>
+        <div class="ttt-cell" data-index="8"></div>
+      </div>
+      <div class="ttt-controls">
+        <button class="btn btn-secondary" id="tttReset">New Game</button>
+      </div>
+    </div>
+  </section>
+
   <footer>
     <p>Designed with precision. <span>Sanit Consulting.</span> All rights reserved.</p>
   </footer>
@@ -912,6 +1039,168 @@
         }
       });
     });
+
+    // Tic Tac Toe
+    (function() {
+      const board = document.getElementById('tttBoard');
+      const cells = board.querySelectorAll('.ttt-cell');
+      const status = document.getElementById('tttStatus');
+      const resetBtn = document.getElementById('tttReset');
+      const scoreXEl = document.getElementById('scoreX');
+      const scoreOEl = document.getElementById('scoreO');
+      const scoreDrawEl = document.getElementById('scoreDraw');
+
+      let gameState = Array(9).fill('');
+      let currentPlayer = 'X';
+      let gameActive = true;
+      let scores = { X: 0, O: 0, draw: 0 };
+
+      const winPatterns = [
+        [0,1,2], [3,4,5], [6,7,8],
+        [0,3,6], [1,4,7], [2,5,8],
+        [0,4,8], [2,4,6]
+      ];
+
+      function checkWin(state, player) {
+        for (const pattern of winPatterns) {
+          if (pattern.every(i => state[i] === player)) {
+            return pattern;
+          }
+        }
+        return null;
+      }
+
+      function isDraw(state) {
+        return state.every(c => c !== '');
+      }
+
+      function minimax(state, depth, isMaximizing) {
+        if (checkWin(state, 'O')) return 10 - depth;
+        if (checkWin(state, 'X')) return depth - 10;
+        if (isDraw(state)) return 0;
+
+        if (isMaximizing) {
+          let best = -Infinity;
+          for (let i = 0; i < 9; i++) {
+            if (state[i] === '') {
+              state[i] = 'O';
+              best = Math.max(best, minimax(state, depth + 1, false));
+              state[i] = '';
+            }
+          }
+          return best;
+        } else {
+          let best = Infinity;
+          for (let i = 0; i < 9; i++) {
+            if (state[i] === '') {
+              state[i] = 'X';
+              best = Math.min(best, minimax(state, depth + 1, true));
+              state[i] = '';
+            }
+          }
+          return best;
+        }
+      }
+
+      function getBestMove() {
+        let bestScore = -Infinity;
+        let move = -1;
+        for (let i = 0; i < 9; i++) {
+          if (gameState[i] === '') {
+            gameState[i] = 'O';
+            let score = minimax(gameState, 0, false);
+            gameState[i] = '';
+            if (score > bestScore) {
+              bestScore = score;
+              move = i;
+            }
+          }
+        }
+        return move;
+      }
+
+      function updateCell(cell, player) {
+        cell.textContent = player;
+        cell.classList.add(player === 'X' ? 'x-mark' : 'o-mark');
+      }
+
+      function highlightWinner(pattern) {
+        pattern.forEach(i => cells[i].classList.add('winner'));
+      }
+
+      function endGame(message, winPattern) {
+        gameActive = false;
+        status.textContent = message;
+        if (winPattern) highlightWinner(winPattern);
+      }
+
+      function aiMove() {
+        if (!gameActive) return;
+        status.textContent = 'AI is thinking...';
+        setTimeout(() => {
+          if (!gameActive) return;
+          const move = getBestMove();
+          if (move !== -1) {
+            gameState[move] = 'O';
+            updateCell(cells[move], 'O');
+            const winPattern = checkWin(gameState, 'O');
+            if (winPattern) {
+              scores.O++;
+              scoreOEl.textContent = scores.O;
+              endGame('AI wins. Unbeatable, remember?', winPattern);
+            } else if (isDraw(gameState)) {
+              scores.draw++;
+              scoreDrawEl.textContent = scores.draw;
+              endGame('Draw. Well played.');
+            } else {
+              currentPlayer = 'X';
+              status.textContent = 'Your move. You are X.';
+            }
+          }
+        }, 400);
+      }
+
+      function handleCellClick(e) {
+        const cell = e.target;
+        const index = parseInt(cell.dataset.index);
+        if (!gameActive || gameState[index] !== '' || currentPlayer !== 'X') return;
+
+        gameState[index] = 'X';
+        updateCell(cell, 'X');
+
+        const winPattern = checkWin(gameState, 'X');
+        if (winPattern) {
+          scores.X++;
+          scoreXEl.textContent = scores.X;
+          endGame('You win! Impressive.', winPattern);
+          return;
+        }
+
+        if (isDraw(gameState)) {
+          scores.draw++;
+          scoreDrawEl.textContent = scores.draw;
+          endGame('Draw. Well played.');
+          return;
+        }
+
+        currentPlayer = 'O';
+        aiMove();
+      }
+
+      function resetGame() {
+        gameState = Array(9).fill('');
+        currentPlayer = 'X';
+        gameActive = true;
+        status.textContent = 'Your move. You are X.';
+        cells.forEach(cell => {
+          cell.textContent = '';
+          cell.className = 'ttt-cell';
+        });
+      }
+
+      cells.forEach(cell => cell.addEventListener('click', handleCellClick));
+      resetBtn.addEventListener('click', resetGame);
+    })();
   </script>
 
 </body>
